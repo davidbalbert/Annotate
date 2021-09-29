@@ -10,21 +10,23 @@ import Cocoa
 import os
 
 class PaintView: NSView {
-    var radius = 2.5
+    var radius = 4.0
 
-    var image: NSImage!
+    var image: NSImage
     var lastPoint: NSPoint?
 
     override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-
         image = NSImage(size: frameRect.size)
+
+        super.init(frame: frameRect)
     }
 
     required init?(coder: NSCoder) {
+        image = NSImage(size: .zero)
+
         super.init(coder: coder)
 
-        image = NSImage(size: frame.size)
+        image.size = frame.size
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -41,7 +43,7 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        drawCircle(centeredAt: p)
+        drawLine(from: p, to: p)
         lastPoint = p
 
         needsDisplay = true
@@ -52,12 +54,7 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        if let lastPoint = lastPoint {
-            interpolateLine(from: lastPoint, to: p)
-        } else {
-            drawCircle(centeredAt: p)
-        }
-
+        drawLine(from: lastPoint ?? p, to: p)
         lastPoint = p
 
         needsDisplay = true
@@ -68,32 +65,16 @@ class PaintView: NSView {
         lastPoint = nil
     }
 
-    func interpolateLine(from start: NSPoint, to end: NSPoint) {
-        var p = start
-
-        if start.x != end.x || start.y != end.y {
-            let dir: Double = atan2(end.y - start.y, end.x - start.x)
-            var dist = sqrt(pow(end.x - start.x, 2) + pow(end.y - start.y, 2))
-
-            repeat {
-                os_log("drawCircle(centeredAt: %s)", String(describing: p))
-                drawCircle(centeredAt: p)
-                p.x += radius*cos(dir)
-                p.y += radius*sin(dir)
-                dist -= radius
-            } while dist > 0
-        }
-    }
-
-    func drawCircle(centeredAt point: NSPoint) {
-        let origin = NSPoint(x: point.x-radius, y: point.y-radius)
+    func drawLine(from start: NSPoint, to end: NSPoint) {
+        let path = NSBezierPath()
+        path.move(to: start)
+        path.line(to: end)
+        path.lineWidth = 2*radius
+        path.lineCapStyle = .round
 
         image.lockFocus()
-
-        NSColor.red.setFill()
-        let rect = NSRect(origin: origin, size: CGSize(width: 2*radius, height: 2*radius))
-        NSBezierPath.init(ovalIn: rect).fill()
-
+        NSColor.red.setStroke()
+        path.stroke()
         image.unlockFocus()
     }
 
