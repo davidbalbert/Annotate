@@ -83,4 +83,10 @@ class PaintView: NSView {
 
         os_log("resize %s", String(describing: frame))
     }
+
+    @IBAction func clear(_ sender: Any?) {
+        image = NSImage(size: frame.size)
+
+        needsDisplay = true
+    }
 }
