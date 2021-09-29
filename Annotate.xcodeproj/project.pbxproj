@@ -13,6 +13,7 @@
 		635C6B0F2704BF0A00D26B68 /* AnnotateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635C6B0E2704BF0A00D26B68 /* AnnotateTests.swift */; };
 		635C6B192704BF0A00D26B68 /* AnnotateUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635C6B182704BF0A00D26B68 /* AnnotateUITests.swift */; };
 		635C6B1B2704BF0A00D26B68 /* AnnotateUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635C6B1A2704BF0A00D26B68 /* AnnotateUITestsLaunchTests.swift */; };
+		635C6B282704C23100D26B68 /* PaintView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635C6B272704C23100D26B68 /* PaintView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +44,7 @@
 		635C6B142704BF0A00D26B68 /* AnnotateUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnnotateUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		635C6B182704BF0A00D26B68 /* AnnotateUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotateUITests.swift; sourceTree = "<group>"; };
 		635C6B1A2704BF0A00D26B68 /* AnnotateUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotateUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		635C6B272704C23100D26B68 /* PaintView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaintView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				635C6AFE2704BF0800D26B68 /* AppDelegate.swift */,
+				635C6B272704C23100D26B68 /* PaintView.swift */,
 				635C6B002704BF0A00D26B68 /* Assets.xcassets */,
 				635C6B022704BF0A00D26B68 /* MainMenu.xib */,
 				635C6B052704BF0A00D26B68 /* Annotate.entitlements */,
@@ -249,6 +252,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				635C6AFF2704BF0800D26B68 /* AppDelegate.swift in Sources */,
+				635C6B282704C23100D26B68 /* PaintView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
