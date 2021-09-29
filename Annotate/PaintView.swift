@@ -9,10 +9,12 @@ import Cocoa
 
 import os
 
+@IBDesignable
 class PaintView: NSView {
     var radius = 4.0
 
     var paths: [NSBezierPath] = []
+    var lastPoint: NSPoint?
 
     override var isFlipped: Bool {
         true
@@ -36,12 +38,9 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        let path = NSBezierPath()
-        path.lineWidth = 2*radius
-        path.lineCapStyle = .round
-        path.move(to: p)
-
+        let path = makeLine(from: p, to: p)
         paths.append(path)
+        lastPoint = p
 
         needsDisplay = true
     }
@@ -51,7 +50,9 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        paths.last?.line(to: p)
+        let path = makeLine(from: lastPoint ?? p, to: p)
+        paths.append(path)
+        lastPoint = p
 
         needsDisplay = true
     }
@@ -59,17 +60,17 @@ class PaintView: NSView {
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
 
-        let p = convert(event.locationInWindow, from: nil)
-
-        paths.last?.line(to: p)
-
-        needsDisplay = true
+        lastPoint = nil
     }
 
-    override func resize(withOldSuperviewSize oldSize: NSSize) {
-        super.resize(withOldSuperviewSize: oldSize)
+    func makeLine(from start: NSPoint, to end: NSPoint) -> NSBezierPath {
+        let path = NSBezierPath()
+        path.move(to: start)
+        path.line(to: end)
+        path.lineWidth = 2*radius
+        path.lineCapStyle = .round
 
-        os_log("resize %s", String(describing: frame))
+        return path
     }
 
     @IBAction func clear(_ sender: Any?) {
