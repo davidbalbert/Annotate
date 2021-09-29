@@ -12,21 +12,10 @@ import os
 class PaintView: NSView {
     var radius = 4.0
 
-    var image: NSImage
-    var lastPoint: NSPoint?
+    var paths: [NSBezierPath] = []
 
-    override init(frame frameRect: NSRect) {
-        image = NSImage(size: frameRect.size)
-
-        super.init(frame: frameRect)
-    }
-
-    required init?(coder: NSCoder) {
-        image = NSImage(size: .zero)
-
-        super.init(coder: coder)
-
-        image.size = frame.size
+    override var isFlipped: Bool {
+        true
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -35,7 +24,11 @@ class PaintView: NSView {
         NSColor.blue.setFill()
         NSBezierPath(rect: dirtyRect).fill()
 
-        image.draw(in: dirtyRect)
+        NSColor.red.setStroke()
+
+        for path in paths {
+            path.stroke()
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -43,8 +36,12 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        drawLine(from: p, to: p)
-        lastPoint = p
+        let path = NSBezierPath()
+        path.lineWidth = 2*radius
+        path.lineCapStyle = .round
+        path.move(to: p)
+
+        paths.append(path)
 
         needsDisplay = true
     }
@@ -54,28 +51,19 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        drawLine(from: lastPoint ?? p, to: p)
-        lastPoint = p
+        paths.last?.line(to: p)
 
         needsDisplay = true
     }
 
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
-        lastPoint = nil
-    }
 
-    func drawLine(from start: NSPoint, to end: NSPoint) {
-        let path = NSBezierPath()
-        path.move(to: start)
-        path.line(to: end)
-        path.lineWidth = 2*radius
-        path.lineCapStyle = .round
+        let p = convert(event.locationInWindow, from: nil)
 
-        image.lockFocus()
-        NSColor.red.setStroke()
-        path.stroke()
-        image.unlockFocus()
+        paths.last?.line(to: p)
+
+        needsDisplay = true
     }
 
     override func resize(withOldSuperviewSize oldSize: NSSize) {
@@ -85,7 +73,7 @@ class PaintView: NSView {
     }
 
     @IBAction func clear(_ sender: Any?) {
-        image = NSImage(size: frame.size)
+        paths = []
 
         needsDisplay = true
     }
