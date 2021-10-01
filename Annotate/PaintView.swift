@@ -9,28 +9,55 @@ import Cocoa
 
 import os
 
+func -(lhs: CGPoint, rhs: CGPoint) -> CGPoint {
+    return CGPoint(x: lhs.x - rhs.x, y: lhs.y - rhs.y)
+}
+
+func +(lhs: CGPoint, rhs: CGPoint) -> CGPoint {
+    return CGPoint(x: lhs.x + rhs.x, y: lhs.y + rhs.y)
+}
+
 @IBDesignable
 class PaintView: NSView {
     var radius = 4.0
-
-    var paths: [NSBezierPath] = []
     var lastPoint: NSPoint?
 
     override var isFlipped: Bool {
         true
     }
 
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
+    override var wantsUpdateLayer: Bool {
+        true
+    }
 
-        NSColor.blue.setFill()
-        NSBezierPath(rect: dirtyRect).fill()
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
 
-        NSColor.red.setStroke()
+        initLayer()
+    }
 
-        for path in paths {
-            path.stroke()
-        }
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+
+        initLayer()
+    }
+
+    func initLayer() {
+        let layer = CALayer()
+        layer.backgroundColor = NSColor.purple.cgColor
+        layer.anchorPoint = .zero
+
+        os_log("init before %s", String(describing: layer.isGeometryFlipped))
+
+
+        self.layer = layer
+        wantsLayer = true
+
+        os_log("init after %s", String(describing: layer.isGeometryFlipped))
+    }
+
+    override func updateLayer() {
+        os_log("updateLayer")
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -38,11 +65,9 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        let path = makeLine(from: p, to: p)
-        paths.append(path)
+        let shapeLayer = layerForLine(from: p, to: p)
+        layer?.addSublayer(shapeLayer)
         lastPoint = p
-
-        needsDisplay = true
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -50,11 +75,10 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        let path = makeLine(from: lastPoint ?? p, to: p)
-        paths.append(path)
-        lastPoint = p
+        let shapeLayer = layerForLine(from: lastPoint ?? p, to: p)
+        layer?.addSublayer(shapeLayer)
 
-        needsDisplay = true
+        lastPoint = p
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -63,18 +87,38 @@ class PaintView: NSView {
         lastPoint = nil
     }
 
-    func makeLine(from start: NSPoint, to end: NSPoint) -> NSBezierPath {
-        let path = NSBezierPath()
-        path.move(to: start)
-        path.line(to: end)
-        path.lineWidth = 2*radius
-        path.lineCapStyle = .round
+    func layerForLine(from start: NSPoint, to end: NSPoint) -> CAShapeLayer {
+        let lineWidth = 2*radius
 
-        return path
+        let layer = CAShapeLayer()
+        layer.anchorPoint = .zero
+        layer.strokeColor = NSColor.red.cgColor
+        layer.lineWidth = lineWidth
+        layer.lineCap = .round
+
+        let minX = min(start.x, end.x) - radius
+        let minY = min(start.y, end.y) - radius
+        let origin = CGPoint(x: minX, y: minY)
+        layer.position = origin
+
+        let width = lineWidth+abs(end.x-start.x)
+        let height = lineWidth+abs(end.y-start.y)
+
+        layer.bounds = CGRect(origin: .zero, size: CGSize(width: width, height: height))
+
+        let path = CGMutablePath()
+        path.move(to: start - origin)
+        path.addLine(to: end - origin)
+        layer.path = path
+
+        return layer
     }
 
     @IBAction func clear(_ sender: Any?) {
-        paths = []
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer?.sublayers = nil
+        CATransaction.commit()
 
         needsDisplay = true
     }
