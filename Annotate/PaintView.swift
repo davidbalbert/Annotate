@@ -13,10 +13,17 @@ func -(lhs: CGPoint, rhs: CGPoint) -> CGPoint {
     return CGPoint(x: lhs.x - rhs.x, y: lhs.y - rhs.y)
 }
 
+struct Annotation: Identifiable {
+    var id = UUID()
+    var layers: [CALayer] = []
+}
+
 @IBDesignable
 class PaintView: NSView {
     var radius = 4.0
     var lastPoint: NSPoint?
+    var currentAnnotationId: UUID?
+    var annotations: [UUID: Annotation] = [:]
 
     override var isFlipped: Bool {
         true
@@ -43,17 +50,8 @@ class PaintView: NSView {
         layer.backgroundColor = NSColor.purple.cgColor
         layer.anchorPoint = .zero
 
-        os_log("init before %s", String(describing: layer.isGeometryFlipped))
-
-
         self.layer = layer
         wantsLayer = true
-
-        os_log("init after %s", String(describing: layer.isGeometryFlipped))
-    }
-
-    override func updateLayer() {
-        os_log("updateLayer")
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -64,6 +62,11 @@ class PaintView: NSView {
         let shapeLayer = layerForLine(from: p, to: p)
         layer?.addSublayer(shapeLayer)
         lastPoint = p
+
+        var a = Annotation()
+        a.layers.append(shapeLayer)
+        annotations[a.id] = a
+        currentAnnotationId = a.id
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -75,12 +78,44 @@ class PaintView: NSView {
         layer?.addSublayer(shapeLayer)
 
         lastPoint = p
+
+        guard let id = currentAnnotationId else {
+            return
+        }
+
+        annotations[id]?.layers.append(shapeLayer)
     }
 
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
 
         lastPoint = nil
+
+        guard let id = currentAnnotationId else {
+            return
+        }
+
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4)) {
+            self.removeAnnotation(id)
+        }
+
+        currentAnnotationId = nil
+    }
+
+    func removeAnnotation(_ id: UUID) {
+        guard let a = annotations[id] else {
+            return
+        }
+
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(1.5)
+        for layer in a.layers {
+            layer.removeFromSuperlayer()
+        }
+        CATransaction.commit()
+
+        annotations.removeValue(forKey: a.id)
     }
 
     func layerForLine(from start: NSPoint, to end: NSPoint) -> CAShapeLayer {
