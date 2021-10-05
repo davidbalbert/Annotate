@@ -22,7 +22,8 @@ extension CATransaction {
     }
 }
 
-class Path {
+struct Path: Identifiable {
+    var id = UUID()
     var radius: Double
     var points: [CGPoint]
     var layer: CAShapeLayer
@@ -63,7 +64,7 @@ class Path {
         layer.borderWidth = 1
     }
 
-    func addPoint(_ point: CGPoint) {
+    mutating func addPoint(_ point: CGPoint) {
         let paddingAdjusted = CGPoint(x: point.x-radius, y: point.y-radius)
 
         let x = min(origin.x, paddingAdjusted.x)
@@ -106,7 +107,8 @@ class Path {
 @IBDesignable
 class PaintView: NSView {
     var radius = 4.0
-    var paths: [Path] = []
+    var paths: [UUID: Path] = [:]
+    var currentPathId: UUID?
 
     override var isFlipped: Bool {
         true
@@ -147,7 +149,8 @@ class PaintView: NSView {
             layer?.addSublayer(path.layer)
         }
 
-        paths.append(path)
+        paths[path.id] = path
+        currentPathId = path.id
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -155,13 +158,41 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        guard let path = paths.last else {
+        guard let id = currentPathId else {
             return
         }
 
         CATransaction.withoutAnimations {
-            path.addPoint(p)
+            paths[id]?.addPoint(p)
         }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        super.mouseUp(with: event)
+
+        guard let id = currentPathId else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4)) {
+            guard let layer = self.paths[id]?.layer else {
+                return
+            }
+
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(5.0)
+
+            layer.position.x += 100
+
+            CATransaction.setCompletionBlock {
+                print("Huh?")
+//                layer.removeFromSuperlayer()
+                self.paths.removeValue(forKey: id)
+            }
+            CATransaction.commit()
+        }
+
+        currentPathId = nil
     }
 
     @IBAction func clear(_ sender: Any?) {
