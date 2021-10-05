@@ -13,17 +13,100 @@ func -(lhs: CGPoint, rhs: CGPoint) -> CGPoint {
     return CGPoint(x: lhs.x - rhs.x, y: lhs.y - rhs.y)
 }
 
-struct Annotation: Identifiable {
-    var id = UUID()
-    var layers: [CALayer] = []
+extension CATransaction {
+    class func withoutAnimations(execute: () -> Void) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        execute()
+        CATransaction.commit()
+    }
+}
+
+class Path {
+    var radius: Double
+    var points: [CGPoint]
+    var layer: CAShapeLayer
+
+    var lineWidth: Double {
+        2*radius
+    }
+
+    var origin: CGPoint {
+        layer.position
+    }
+
+    var size: CGSize {
+        layer.bounds.size
+    }
+
+    init(startingAt point: CGPoint, withRadius radius: Double) {
+        self.radius = radius
+        points = []
+        layer = CAShapeLayer()
+
+        setupLayer(withOrigin: point)
+        addPoint(point)
+    }
+
+    func setupLayer(withOrigin point: CGPoint) {
+        layer.anchorPoint = .zero
+        layer.fillColor = NSColor.clear.cgColor
+        layer.strokeColor = NSColor.red.cgColor
+        layer.lineWidth = lineWidth
+        layer.lineCap = .round
+        layer.lineJoin = .round
+
+        layer.position = CGPoint(x: point.x-radius, y: point.y-radius)
+        layer.bounds = CGRect(x: 0, y: 0, width: 2*radius, height: 2*radius)
+
+        layer.borderColor = NSColor.black.cgColor
+        layer.borderWidth = 1
+    }
+
+    func addPoint(_ point: CGPoint) {
+        let paddingAdjusted = CGPoint(x: point.x-radius, y: point.y-radius)
+
+        let x = min(origin.x, paddingAdjusted.x)
+        let y = min(origin.y, paddingAdjusted.y)
+
+        let dx = paddingAdjusted.x - origin.x
+        let dy = paddingAdjusted.y - origin.y
+
+        let width = max(size.width + -min(dx, 0), dx + 2*radius)
+        let height = max(size.height + -min(dy, 0), dy + 2*radius)
+
+        layer.position = CGPoint(x: x, y: y)
+        layer.bounds = CGRect(origin: .zero, size: CGSize(width: width, height: height))
+
+        points.append(point)
+        layer.path = makePath()
+    }
+
+    func makePath() -> CGPath {
+        let path = CGMutablePath()
+
+        guard let start = points.first else {
+            return path
+        }
+
+        path.move(to: convert(start))
+
+        for p in points {
+            path.addLine(to: convert(p))
+        }
+
+        return path
+    }
+
+    func convert(_ point: CGPoint) -> CGPoint {
+        return point - origin
+    }
 }
 
 @IBDesignable
 class PaintView: NSView {
     var radius = 4.0
-    var lastPoint: NSPoint?
-    var currentAnnotationId: UUID?
-    var annotations: [UUID: Annotation] = [:]
+    var paths: [Path] = []
 
     override var isFlipped: Bool {
         true
@@ -59,14 +142,12 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        let shapeLayer = layerForLine(from: p, to: p)
-        layer?.addSublayer(shapeLayer)
-        lastPoint = p
+        let path = Path(startingAt: p, withRadius: radius)
+        CATransaction.withoutAnimations {
+            layer?.addSublayer(path.layer)
+        }
 
-        var a = Annotation()
-        a.layers.append(shapeLayer)
-        annotations[a.id] = a
-        currentAnnotationId = a.id
+        paths.append(path)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -74,83 +155,18 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        let shapeLayer = layerForLine(from: lastPoint ?? p, to: p)
-        layer?.addSublayer(shapeLayer)
-
-        lastPoint = p
-
-        guard let id = currentAnnotationId else {
+        guard let path = paths.last else {
             return
         }
 
-        annotations[id]?.layers.append(shapeLayer)
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        super.mouseUp(with: event)
-
-        lastPoint = nil
-
-        guard let id = currentAnnotationId else {
-            return
+        CATransaction.withoutAnimations {
+            path.addPoint(p)
         }
-
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4)) {
-            self.removeAnnotation(id)
-        }
-
-        currentAnnotationId = nil
-    }
-
-    func removeAnnotation(_ id: UUID) {
-        guard let a = annotations[id] else {
-            return
-        }
-
-        CATransaction.begin()
-        CATransaction.setAnimationDuration(1.5)
-        for layer in a.layers {
-            layer.removeFromSuperlayer()
-        }
-        CATransaction.commit()
-
-        annotations.removeValue(forKey: a.id)
-    }
-
-    func layerForLine(from start: NSPoint, to end: NSPoint) -> CAShapeLayer {
-        let lineWidth = 2*radius
-
-        let layer = CAShapeLayer()
-        layer.anchorPoint = .zero
-        layer.strokeColor = NSColor.red.cgColor
-        layer.lineWidth = lineWidth
-        layer.lineCap = .round
-
-        let minX = min(start.x, end.x) - radius
-        let minY = min(start.y, end.y) - radius
-        let origin = CGPoint(x: minX, y: minY)
-        layer.position = origin
-
-        let width = lineWidth+abs(end.x-start.x)
-        let height = lineWidth+abs(end.y-start.y)
-
-        layer.bounds = CGRect(origin: .zero, size: CGSize(width: width, height: height))
-
-        let path = CGMutablePath()
-        path.move(to: start - origin)
-        path.addLine(to: end - origin)
-        layer.path = path
-
-        return layer
     }
 
     @IBAction func clear(_ sender: Any?) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer?.sublayers = nil
-        CATransaction.commit()
-
-        annotations = [:]
+        CATransaction.withoutAnimations {
+            layer?.sublayers = nil
+        }
     }
 }
