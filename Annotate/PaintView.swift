@@ -151,6 +151,6 @@ class PaintView: NSView {
         layer?.sublayers = nil
         CATransaction.commit()
 
-        needsDisplay = true
+        annotations = [:]
     }
 }
