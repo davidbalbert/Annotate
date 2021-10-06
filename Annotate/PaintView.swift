@@ -59,9 +59,6 @@ struct Path: Identifiable {
 
         layer.position = CGPoint(x: point.x-radius, y: point.y-radius)
         layer.bounds = CGRect(x: 0, y: 0, width: 2*radius, height: 2*radius)
-
-        layer.borderColor = NSColor.black.cgColor
-        layer.borderWidth = 1
     }
 
     mutating func addPoint(_ point: CGPoint) {
@@ -180,15 +177,14 @@ class PaintView: NSView {
             }
 
             CATransaction.begin()
-            CATransaction.setAnimationDuration(5.0)
-
-            layer.position.x += 100
+            CATransaction.setAnimationDuration(1.5)
 
             CATransaction.setCompletionBlock {
-                print("Huh?")
-//                layer.removeFromSuperlayer()
+                layer.removeFromSuperlayer()
                 self.paths.removeValue(forKey: id)
             }
+
+            layer.strokeStart = 1.0
             CATransaction.commit()
         }
 
