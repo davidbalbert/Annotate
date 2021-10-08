@@ -25,8 +25,8 @@ extension CATransaction {
 struct Path: Identifiable {
     var id = UUID()
     var radius: Double
-    var points: [CGPoint]
     var layer: CAShapeLayer
+    var path: CGMutablePath
 
     var lineWidth: Double {
         2*radius
@@ -42,8 +42,8 @@ struct Path: Identifiable {
 
     init(startingAt point: CGPoint, withRadius radius: Double) {
         self.radius = radius
-        points = []
         layer = CAShapeLayer()
+        path = CGMutablePath()
 
         setupLayer(withOrigin: point)
         addPoint(point)
@@ -59,6 +59,12 @@ struct Path: Identifiable {
 
         layer.position = CGPoint(x: point.x-radius, y: point.y-radius)
         layer.bounds = CGRect(x: 0, y: 0, width: 2*radius, height: 2*radius)
+
+        path.move(to: convert(point))
+        layer.path = path
+
+        layer.borderColor = CGColor.black
+        layer.borderWidth = 1
     }
 
     mutating func addPoint(_ point: CGPoint) {
@@ -76,24 +82,17 @@ struct Path: Identifiable {
         layer.position = CGPoint(x: x, y: y)
         layer.bounds = CGRect(origin: .zero, size: CGSize(width: width, height: height))
 
-        points.append(point)
-        layer.path = makePath()
-    }
+        if dx < 0 || dy < 0 {
+            var t = CGAffineTransform(translationX: -min(dx, 0), y: -min(dy, 0))
+            guard let p = path.mutableCopy(using: &t) else {
+                return
+            }
 
-    func makePath() -> CGPath {
-        let path = CGMutablePath()
-
-        guard let start = points.first else {
-            return path
+            path = p
         }
 
-        path.move(to: convert(start))
-
-        for p in points {
-            path.addLine(to: convert(p))
-        }
-
-        return path
+        path.addLine(to: convert(point))
+        layer.path = path
     }
 
     func convert(_ point: CGPoint) -> CGPoint {
