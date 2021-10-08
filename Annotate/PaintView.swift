@@ -177,7 +177,7 @@ class PaintView: NSView {
             }
 
             CATransaction.begin()
-            CATransaction.setAnimationDuration(1.5)
+            CATransaction.setAnimationTimingFunction(.init(name: .easeIn))
 
             CATransaction.setCompletionBlock {
                 layer.removeFromSuperlayer()
