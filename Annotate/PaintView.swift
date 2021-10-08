@@ -33,17 +33,31 @@ struct Path: Identifiable {
     }
 
     var origin: CGPoint {
-        layer.position
+        get {
+            CGPoint(x: layer.position.x + radius, y: layer.position.y + radius)
+        }
+
+        set {
+            layer.position = CGPoint(x: newValue.x-radius, y: newValue.y-radius)
+        }
     }
 
     var size: CGSize {
-        layer.bounds.size
+        get {
+            CGSize(width: layer.bounds.width - 2*radius, height: layer.bounds.height - 2*radius)
+        }
+
+        set {
+            layer.bounds.size = CGSize(width: newValue.width + 2*radius, height: newValue.height + 2*radius)
+        }
     }
 
     init(startingAt point: CGPoint, withRadius radius: Double) {
         self.radius = radius
         layer = CAShapeLayer()
         path = CGMutablePath()
+        origin = point
+        size = .zero
 
         setupLayer(withOrigin: point)
         addPoint(point)
@@ -56,9 +70,7 @@ struct Path: Identifiable {
         layer.lineWidth = lineWidth
         layer.lineCap = .round
         layer.lineJoin = .round
-
-        layer.position = CGPoint(x: point.x-radius, y: point.y-radius)
-        layer.bounds = CGRect(x: 0, y: 0, width: 2*radius, height: 2*radius)
+        layer.bounds.origin = .zero
 
         path.move(to: convert(point))
         layer.path = path
@@ -68,19 +80,17 @@ struct Path: Identifiable {
     }
 
     mutating func addPoint(_ point: CGPoint) {
-        let paddingAdjusted = CGPoint(x: point.x-radius, y: point.y-radius)
+        let x = min(origin.x, point.x)
+        let y = min(origin.y, point.y)
 
-        let x = min(origin.x, paddingAdjusted.x)
-        let y = min(origin.y, paddingAdjusted.y)
+        let dx = point.x - origin.x
+        let dy = point.y - origin.y
 
-        let dx = paddingAdjusted.x - origin.x
-        let dy = paddingAdjusted.y - origin.y
+        let width = max(size.width + -min(dx, 0), dx)
+        let height = max(size.height + -min(dy, 0), dy)
 
-        let width = max(size.width + -min(dx, 0), dx + 2*radius)
-        let height = max(size.height + -min(dy, 0), dy + 2*radius)
-
-        layer.position = CGPoint(x: x, y: y)
-        layer.bounds = CGRect(origin: .zero, size: CGSize(width: width, height: height))
+        origin = CGPoint(x: x, y: y)
+        size = CGSize(width: width, height: height)
 
         if dx < 0 || dy < 0 {
             var t = CGAffineTransform(translationX: -min(dx, 0), y: -min(dy, 0))
@@ -96,7 +106,7 @@ struct Path: Identifiable {
     }
 
     func convert(_ point: CGPoint) -> CGPoint {
-        return point - origin
+        return point - layer.position
     }
 }
 
