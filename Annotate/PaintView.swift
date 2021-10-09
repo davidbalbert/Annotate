@@ -182,12 +182,11 @@ class PaintView: NSView {
         }
 
         let geometry = AutosizingShapeLayerGeometry(frame: layer.frame, padding: radius)
-        path = geometry.translate(path, afterAdding: point)
-
         let frame = geometry.frame(afterAdding: point)
         layer.position = frame.origin
         layer.bounds.size = frame.size
 
+        path = geometry.translate(path, afterAdding: point)
         path.addLine(to: geometry.convert(point))
 
         layer.path = path
