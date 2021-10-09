@@ -23,26 +23,19 @@ extension CATransaction {
 }
 
 struct AutosizingShapeLayerGeometry {
-    var layer: CAShapeLayer
+    var frame: CGRect
+    var padding: CGFloat
 
-    var lineWidth: Double {
-        layer.lineWidth
-    }
-
-    var radius: Double {
-        lineWidth/2.0
+    static func initialFrame(origin: CGPoint, padding: CGFloat) -> CGRect {
+        return CGRect(x: origin.x-padding, y: origin.y-padding, width: 2*padding, height: 2*padding)
     }
 
     var origin: CGPoint {
-        CGPoint(x: layer.position.x + radius, y: layer.position.y + radius)
+        CGPoint(x: frame.minX + padding, y: frame.minY + padding)
     }
 
     var size: CGSize {
-        CGSize(width: layer.bounds.width - lineWidth, height: layer.bounds.height - lineWidth)
-    }
-
-    func initialFrame(withOrigin point: CGPoint) -> CGRect {
-        return CGRect(x: point.x-radius, y: point.y-radius, width: lineWidth, height: lineWidth)
+        CGSize(width: frame.width - 2*padding, height: frame.height - 2*padding)
     }
 
     func frame(afterAdding point: CGPoint) -> CGRect {
@@ -55,7 +48,7 @@ struct AutosizingShapeLayerGeometry {
         let width = max(size.width - min(dx, 0), dx)
         let height = max(size.height - min(dy, 0), dy)
 
-        return CGRect(x: x-radius, y: y-radius, width: width+lineWidth, height: height+lineWidth)
+        return CGRect(x: x-padding, y: y-padding, width: width+2*padding, height: height+2*padding)
     }
 
     func translate(_ path: CGMutablePath, afterAdding point: CGPoint) -> CGMutablePath {
@@ -75,7 +68,7 @@ struct AutosizingShapeLayerGeometry {
     }
 
     func convert(_ point: CGPoint) -> CGPoint {
-        return point - layer.position
+        return point - frame.origin
     }
 }
 
@@ -168,11 +161,11 @@ class PaintView: NSView {
         layer.lineCap = .round
         layer.lineJoin = .round
 
-        let geometry = AutosizingShapeLayerGeometry(layer: layer)
-        let frame = geometry.initialFrame(withOrigin: point)
+        let frame = AutosizingShapeLayerGeometry.initialFrame(origin: point, padding: radius)
         layer.position = frame.origin
         layer.bounds.size = frame.size
 
+        let geometry = AutosizingShapeLayerGeometry(frame: layer.frame, padding: radius)
         let path = CGMutablePath()
         path.move(to: geometry.convert(point))
         layer.path = path
@@ -184,12 +177,11 @@ class PaintView: NSView {
     }
 
     func addPoint(_ point: CGPoint, to layer: CAShapeLayer) {
-        let geometry = AutosizingShapeLayerGeometry(layer: layer)
-
         guard var path = layer.path?.mutableCopy() else {
             return
         }
 
+        let geometry = AutosizingShapeLayerGeometry(frame: layer.frame, padding: radius)
         path = geometry.translate(path, afterAdding: point)
 
         let frame = geometry.frame(afterAdding: point)
