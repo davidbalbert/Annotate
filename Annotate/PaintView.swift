@@ -22,87 +22,56 @@ extension CATransaction {
     }
 }
 
-struct Path: Identifiable {
-    var id = UUID()
-    var radius: Double
+struct AutosizingShapeLayerGeometry {
     var layer: CAShapeLayer
-    var path: CGMutablePath
 
     var lineWidth: Double {
-        2*radius
+        layer.lineWidth
+    }
+
+    var radius: Double {
+        lineWidth/2.0
     }
 
     var origin: CGPoint {
-        get {
-            CGPoint(x: layer.position.x + radius, y: layer.position.y + radius)
-        }
-
-        set {
-            layer.position = CGPoint(x: newValue.x-radius, y: newValue.y-radius)
-        }
+        CGPoint(x: layer.position.x + radius, y: layer.position.y + radius)
     }
 
     var size: CGSize {
-        get {
-            CGSize(width: layer.bounds.width - 2*radius, height: layer.bounds.height - 2*radius)
-        }
-
-        set {
-            layer.bounds.size = CGSize(width: newValue.width + 2*radius, height: newValue.height + 2*radius)
-        }
+        CGSize(width: layer.bounds.width - lineWidth, height: layer.bounds.height - lineWidth)
     }
 
-    init(startingAt point: CGPoint, withRadius radius: Double) {
-        self.radius = radius
-        layer = CAShapeLayer()
-        path = CGMutablePath()
-        origin = point
-        size = .zero
-
-        setupLayer(withOrigin: point)
-        addPoint(point)
+    func initialFrame(withOrigin point: CGPoint) -> CGRect {
+        return CGRect(x: point.x-radius, y: point.y-radius, width: lineWidth, height: lineWidth)
     }
 
-    func setupLayer(withOrigin point: CGPoint) {
-        layer.anchorPoint = .zero
-        layer.fillColor = NSColor.clear.cgColor
-        layer.strokeColor = NSColor.red.cgColor
-        layer.lineWidth = lineWidth
-        layer.lineCap = .round
-        layer.lineJoin = .round
-        layer.bounds.origin = .zero
-
-        path.move(to: convert(point))
-        layer.path = path
-
-        layer.borderColor = CGColor.black
-        layer.borderWidth = 1
-    }
-
-    mutating func addPoint(_ point: CGPoint) {
+    func frame(afterAdding point: CGPoint) -> CGRect {
         let x = min(origin.x, point.x)
         let y = min(origin.y, point.y)
 
         let dx = point.x - origin.x
         let dy = point.y - origin.y
 
-        let width = max(size.width + -min(dx, 0), dx)
-        let height = max(size.height + -min(dy, 0), dy)
+        let width = max(size.width - min(dx, 0), dx)
+        let height = max(size.height - min(dy, 0), dy)
 
-        origin = CGPoint(x: x, y: y)
-        size = CGSize(width: width, height: height)
+        return CGRect(x: x-radius, y: y-radius, width: width+lineWidth, height: height+lineWidth)
+    }
 
-        if dx < 0 || dy < 0 {
-            var t = CGAffineTransform(translationX: -min(dx, 0), y: -min(dy, 0))
-            guard let p = path.mutableCopy(using: &t) else {
-                return
-            }
+    func translate(_ path: CGMutablePath, afterAdding point: CGPoint) -> CGMutablePath {
+        let dx = point.x - origin.x
+        let dy = point.y - origin.y
 
-            path = p
+        if dx >= 0 && dy >= 0 {
+            return path
         }
 
-        path.addLine(to: convert(point))
-        layer.path = path
+        var transform = CGAffineTransform(translationX: -min(dx, 0), y: -min(dy, 0))
+        guard let p = path.mutableCopy(using: &transform) else {
+            return path
+        }
+
+        return p
     }
 
     func convert(_ point: CGPoint) -> CGPoint {
@@ -113,8 +82,6 @@ struct Path: Identifiable {
 @IBDesignable
 class PaintView: NSView {
     var radius = 4.0
-    var paths: [UUID: Path] = [:]
-    var currentPathId: UUID?
 
     override var isFlipped: Bool {
         true
@@ -150,13 +117,12 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        let path = Path(startingAt: p, withRadius: radius)
-        CATransaction.withoutAnimations {
-            layer?.addSublayer(path.layer)
-        }
+        let l = makeLayer(originatingAt: p)
+        addPoint(p, to: l)
 
-        paths[path.id] = path
-        currentPathId = path.id
+        CATransaction.withoutAnimations {
+            layer?.addSublayer(l)
+        }
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -164,40 +130,75 @@ class PaintView: NSView {
 
         let p = convert(event.locationInWindow, from: nil)
 
-        guard let id = currentPathId else {
+        guard let l = layer?.sublayers?.last as? CAShapeLayer else {
             return
         }
 
         CATransaction.withoutAnimations {
-            paths[id]?.addPoint(p)
+            addPoint(p, to: l)
         }
     }
 
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
 
-        guard let id = currentPathId else {
+        guard let l = layer?.sublayers?.last as? CAShapeLayer else {
             return
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4)) {
-            guard let layer = self.paths[id]?.layer else {
-                return
-            }
-
             CATransaction.begin()
             CATransaction.setAnimationTimingFunction(.init(name: .easeIn))
-
             CATransaction.setCompletionBlock {
-                layer.removeFromSuperlayer()
-                self.paths.removeValue(forKey: id)
+                l.removeFromSuperlayer()
             }
 
-            layer.strokeStart = 1.0
+            l.strokeStart = 1.0
+
             CATransaction.commit()
         }
+    }
 
-        currentPathId = nil
+    func makeLayer(originatingAt point: CGPoint) -> CAShapeLayer {
+        let layer = CAShapeLayer()
+        layer.anchorPoint = .zero
+        layer.fillColor = NSColor.clear.cgColor
+        layer.strokeColor = NSColor.red.cgColor
+        layer.lineWidth = 2*radius
+        layer.lineCap = .round
+        layer.lineJoin = .round
+
+        let geometry = AutosizingShapeLayerGeometry(layer: layer)
+        let frame = geometry.initialFrame(withOrigin: point)
+        layer.position = frame.origin
+        layer.bounds.size = frame.size
+
+        let path = CGMutablePath()
+        path.move(to: geometry.convert(point))
+        layer.path = path
+
+        layer.borderColor = CGColor.black
+        layer.borderWidth = 1
+
+        return layer
+    }
+
+    func addPoint(_ point: CGPoint, to layer: CAShapeLayer) {
+        let geometry = AutosizingShapeLayerGeometry(layer: layer)
+
+        guard var path = layer.path?.mutableCopy() else {
+            return
+        }
+
+        path = geometry.translate(path, afterAdding: point)
+
+        let frame = geometry.frame(afterAdding: point)
+        layer.position = frame.origin
+        layer.bounds.size = frame.size
+
+        path.addLine(to: geometry.convert(point))
+
+        layer.path = path
     }
 
     @IBAction func clear(_ sender: Any?) {
